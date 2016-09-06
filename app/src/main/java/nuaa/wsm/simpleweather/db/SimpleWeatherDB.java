@@ -117,6 +117,7 @@ public class SimpleWeatherDB {
         return list;
     }
 
+
     /**
      * 将County实例存储到数据库。
      */
@@ -129,6 +130,8 @@ public class SimpleWeatherDB {
             db.insert("County", null, values);
         }
     }
+
+
     /**
      * 从数据库读取某城市下所有的县信息。
      */

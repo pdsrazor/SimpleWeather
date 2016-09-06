@@ -1,8 +1,10 @@
 package nuaa.wsm.simpleweather.model;
 
+
 /**
  * Created by Fear on 2016/9/5.
  */
+
 public class Province {
 
     private int id;
