@@ -16,6 +16,10 @@
             </intent-filter>
 
         </activity>
+
+        <activity android:name="nuaa.wsm.simpleweather.activity.WeatherActivity">
+
+        </activity>
     </application>
 
 </manifest>
