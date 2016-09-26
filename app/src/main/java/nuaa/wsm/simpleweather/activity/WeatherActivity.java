@@ -1,6 +1,7 @@
 package nuaa.wsm.simpleweather.activity;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -69,8 +70,8 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
         temp1Text = (TextView) findViewById(R.id.temp1);
         temp2Text = (TextView) findViewById(R.id.temp2);
         currentDateText = (TextView) findViewById(R.id.current_date);
-        //switchCity = (Button) findViewById(R.id.switch_city);
-        //refreshWeather = (Button) findViewById(R.id.refresh_weather);
+        switchCity = (Button) findViewById(R.id.switch_city);
+        refreshWeather = (Button) findViewById(R.id.refresh_weather);
         String countyCode = getIntent().getStringExtra("county_code");
         if (!TextUtils.isEmpty(countyCode)) {
             // 有县级代号时就去查询天气
@@ -82,14 +83,14 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
             // 没有县级代号时就直接显示本地天气
             showWeather();
         }
-       // switchCity.setOnClickListener(this);
-       // refreshWeather.setOnClickListener(this);
+        switchCity.setOnClickListener(this);
+        refreshWeather.setOnClickListener(this);
     }
 
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
-            /*
+
             case R.id.switch_city:
                 Intent intent = new Intent(this, ChooseAreaActivity.class);
                 intent.putExtra("from_weather_activity", true);
@@ -104,7 +105,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
                 if (!TextUtils.isEmpty(weatherCode)) {
                     queryWeatherInfo(weatherCode);
                 }
-                break;*/
+                break;
             default:
                 break;
         }
