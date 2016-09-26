@@ -20,6 +20,9 @@
         <activity android:name="nuaa.wsm.simpleweather.activity.WeatherActivity">
 
         </activity>
+
+        <service android:name="nuaa.wsm.simpleweather.service.AutoUpdateService"></service>
+        <receiver android:name="nuaa.wsm.simpleweather.receiver.AutoUpdateReceiver"></receiver>
     </application>
 
 </manifest>

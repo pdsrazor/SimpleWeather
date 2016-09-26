@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import nuaa.wsm.simpleweather.R;
+import nuaa.wsm.simpleweather.service.AutoUpdateService;
 import nuaa.wsm.simpleweather.util.HttpCallbackListener;
 import nuaa.wsm.simpleweather.util.HttpUtil;
 import nuaa.wsm.simpleweather.util.Utility;
@@ -83,9 +84,11 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
             // 没有县级代号时就直接显示本地天气
             showWeather();
         }
+
         switchCity.setOnClickListener(this);
         refreshWeather.setOnClickListener(this);
     }
+
 
     @Override
     public void onClick(View view) {
@@ -183,5 +186,8 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
         currentDateText.setText(prefs.getString("current_date", ""));
         weatherInfoLayout.setVisibility(View.VISIBLE);
         cityNameText.setVisibility(View.VISIBLE);
+
+        Intent intent = new Intent(this, AutoUpdateService.class);
+        startService(intent);
     }
 }
