@@ -1,7 +1,9 @@
 package nuaa.wsm.simpleweather.activity;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -79,7 +81,7 @@ public class ChooseAreaActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         isFromWeatherActivity = getIntent().getBooleanExtra("from_weather_activity", false);
-
+        /*
         SharedPreferences prefs = PreferenceManager.
                 getDefaultSharedPreferences(this);
         if (prefs.getBoolean("city_selected", false)
@@ -88,7 +90,7 @@ public class ChooseAreaActivity extends Activity {
             startActivity(intent);
             finish();
             return;
-        }
+        }*/
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.choose_area);
@@ -108,12 +110,38 @@ public class ChooseAreaActivity extends Activity {
                     selectedCity = cityList.get(index);
                     queryCounties();
                 } else if (currentLevel == LEVEL_COUNTY) {
-                    String countyCode = countyList.get(index).getCountyCode();
-                    Intent intent = new Intent(ChooseAreaActivity.this,
-                            WeatherActivity.class);
-                    intent.putExtra("county_code", countyCode);
-                    startActivity(intent);
-                    finish();
+                    final County added_county = countyList.get(index);
+                    //Intent intent = new Intent(ChooseAreaActivity.this,
+                    //       WeatherActivity.class);
+                    //intent.putExtra("county_code", countyCode);
+                    //intent.putExtra("county_name", countyList.get(index).getCountyName());
+                    //startActivity(intent);
+                    //finish();
+                    AlertDialog.Builder builder = new AlertDialog.Builder(ChooseAreaActivity.this);
+                    builder.setTitle("添加城市");
+                    builder.setMessage("确定添加吗？");
+                    builder.setCancelable(true);
+                    builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            coolWeatherDB.saveSelectedArea(added_county);
+                            SharedPreferences.Editor editor = PreferenceManager
+                                    .getDefaultSharedPreferences(ChooseAreaActivity.this).edit();
+                            editor.putBoolean("area_selected", true);
+                            editor.commit();
+                            Intent intent = new Intent();
+                            intent.putExtra("test", "wsm");
+                            setResult(RESULT_OK, intent);
+                            finish();
+                        }
+                    });
+                    builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            Toast.makeText(ChooseAreaActivity.this, "取消", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    builder.show();
                 }
             }
         });
@@ -271,6 +299,9 @@ public class ChooseAreaActivity extends Activity {
                 Intent intent = new Intent(this, WeatherActivity.class);
                 startActivity(intent);
             }
+            Intent intent = new Intent();
+            intent.putExtra("data_return", "Hello FirstActivity");
+            setResult(RESULT_CANCELED, intent);
             finish();
         }
     }

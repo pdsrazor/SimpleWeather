@@ -153,4 +153,38 @@ public class SimpleWeatherDB {
         }
         return list;
     }
+
+
+    /**
+     * 将选择的area实例存储到数据库。
+     */
+    public void saveSelectedArea(County county) {
+        if (county != null) {
+            ContentValues values = new ContentValues();
+            values.put("county_name", county.getCountyName());
+            values.put("county_code", county.getCountyCode());
+            db.insert("SelectedArea", null, values);
+        }
+    }
+
+    /**
+     * 从数据库读取选择的area。
+     */
+    public List<County> loadSelectedArea() {
+        List<County> list = new ArrayList<County>();
+        Cursor cursor = db
+                .query("SelectedArea", null, null, null, null, null, null);
+        if (cursor.moveToFirst()) {
+            do {
+                County county = new County();
+                county.setId(cursor.getInt(cursor.getColumnIndex("id")));
+                county.setCountyName(cursor.getString(cursor
+                        .getColumnIndex("county_name")));
+                county.setCountyCode(cursor.getString(cursor
+                        .getColumnIndex("county_code")));
+                list.add(county);
+            } while (cursor.moveToNext());
+        }
+        return list;
+    }
 }

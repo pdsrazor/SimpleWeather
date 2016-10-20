@@ -5,21 +5,20 @@
 
     <application android:allowBackup="true"
                  android:label="@string/app_name"
-                 android:icon="@mipmap/ic_launcher"
+                 android:icon="@mipmap/weather"
                  android:theme="@style/AppTheme">
 
-        <activity android:name="nuaa.wsm.simpleweather.activity.ChooseAreaActivity"
+        <activity android:name="nuaa.wsm.simpleweather.activity.SelectedAreaDisplayActivity"
                   android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-
         </activity>
 
-        <activity android:name="nuaa.wsm.simpleweather.activity.WeatherActivity">
-
-        </activity>
+        <activity android:name="nuaa.wsm.simpleweather.activity.WeatherActivity"/>
+        <activity android:name=".activity.SettingActivity"/>
+        <activity android:name=".activity.ChooseAreaActivity"/>
 
         <service android:name="nuaa.wsm.simpleweather.service.AutoUpdateService"></service>
         <receiver android:name="nuaa.wsm.simpleweather.receiver.AutoUpdateReceiver"></receiver>

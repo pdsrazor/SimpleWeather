@@ -26,6 +26,12 @@ public class SimpleWeatherOpenHelper extends SQLiteOpenHelper{
             + "county_code text, "
             + "city_id integer)";
 
+    public static final String CREATE_SLECTED_AREA = "create table SelectedArea ("
+            + "id integer primary key autoincrement, "
+            + "county_name text, "
+            + "county_code text, "
+            + "city_id integer)";
+
     public SimpleWeatherOpenHelper(Context context, String name, SQLiteDatabase.CursorFactory factory, int version) {
         super(context, name, factory, version);
     }
@@ -35,6 +41,7 @@ public class SimpleWeatherOpenHelper extends SQLiteOpenHelper{
         sqLiteDatabase.execSQL(CREATE_PROVINCE);
         sqLiteDatabase.execSQL(CREATE_COUNTY);
         sqLiteDatabase.execSQL(CREATE_CITY);
+        sqLiteDatabase.execSQL(CREATE_SLECTED_AREA);
     }
 
     @Override
