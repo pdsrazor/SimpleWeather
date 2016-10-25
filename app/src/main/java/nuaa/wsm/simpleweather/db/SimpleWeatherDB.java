@@ -11,6 +11,7 @@ import java.util.List;
 import nuaa.wsm.simpleweather.model.City;
 import nuaa.wsm.simpleweather.model.County;
 import nuaa.wsm.simpleweather.model.Province;
+import nuaa.wsm.simpleweather.model.WeatherInfo;
 
 /**
  * Created by Fear on 2016/9/5.
@@ -154,6 +155,48 @@ public class SimpleWeatherDB {
         return list;
     }
 
+    /**
+     * 将天气代码放入指定的条目
+     */
+    public boolean saveWeatherCode(String countyCode, String weatherCode) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put("weather_code", weatherCode);
+        db.update("County", contentValues, "county_code = ?", new String[] {countyCode});
+        return true;
+    }
+
+    /**
+     * 保存天气信息
+    * */
+    public void saveWeatherInfo(ContentValues contentValues) {
+        db.insert("WeatherInfo", null, contentValues);
+    }
+
+
+    public void updateWeatherInfo(ContentValues contentValues, String area_name) {
+        db.update("WeatherInfo", contentValues, "area_name = ?", new String[]{area_name});
+    }
+
+    public List<WeatherInfo> loadWeatherInfo() {
+        List<WeatherInfo> all_weatherinfo = new ArrayList<WeatherInfo>();
+        Cursor cursor = db
+                .query("WeatherInfo", null, null, null, null, null, null);
+        if (cursor.moveToFirst()) {
+            do {
+                WeatherInfo weatherInfo = new WeatherInfo();
+                weatherInfo.setAreaName(cursor.getString(cursor.getColumnIndex("area_name")));
+                weatherInfo.setCurrent_date(cursor.getString(cursor.getColumnIndex("current_date")));
+                weatherInfo.setPublish_time(cursor.getString(cursor.getColumnIndex("publish_time")));
+                weatherInfo.setTmp1(cursor.getString(cursor.getColumnIndex("temp1")));
+                weatherInfo.setTmp2(cursor.getString(cursor.getColumnIndex("temp2")));
+                weatherInfo.setWeather_desp(cursor.getString(cursor.getColumnIndex("weather_desp")));
+                all_weatherinfo.add(weatherInfo);
+            } while (cursor.moveToNext());
+        }
+
+        return all_weatherinfo;
+    }
+
 
     /**
      * 将选择的area实例存储到数据库。
@@ -186,5 +229,56 @@ public class SimpleWeatherDB {
             } while (cursor.moveToNext());
         }
         return list;
+    }
+
+    /**
+    * 从SelectedArea表中，确认当前选中的area是否已经存在
+    * */
+    public boolean confirm_already_add(String area_code) {
+        Cursor cursor = db
+                .query("SelectedArea", null, "county_code=?", new String[]{area_code}, null, null, null);
+        if(cursor.moveToFirst()) {
+            return  true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 从WeatherINfo表中，确认当前选中的area是否已经存在
+     * */
+    public boolean confirm_already_add_by_name(String area_name) {
+        Cursor cursor = db
+                .query("WeatherInfo", null, "area_name=?", new String[]{area_name}, null, null, null);
+        if(cursor.moveToFirst()) {
+            return  true;
+        }
+
+        return false;
+    }
+
+
+    /**
+     * 根据area name查找到area code
+     * */
+    public String GetCodeFromNameInSelectArea(String name) {
+        Cursor cursor = db
+                .query("SelectedArea", null, "county_name=?", new String[]{name}, null, null, null);
+        if(cursor.moveToFirst()) {
+            return cursor.getString(cursor.getColumnIndex("county_code"));
+        }
+        return null;
+    }
+
+    /**
+     * 根据area code查找到area name
+     * */
+    public String GetNameFromCodeInSelectArea(String code) {
+        Cursor cursor = db
+                .query("SelectedArea", null, "county_code=?", new String[]{code}, null, null, null);
+        if(cursor.moveToFirst()) {
+            return cursor.getString(cursor.getColumnIndex("county_name"));
+        }
+        return null;
     }
 }

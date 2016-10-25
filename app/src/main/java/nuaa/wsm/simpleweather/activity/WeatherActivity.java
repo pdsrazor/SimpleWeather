@@ -9,6 +9,7 @@ import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,8 +19,14 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import nuaa.wsm.simpleweather.R;
-import nuaa.wsm.simpleweather.model.ViewCollector;
+import nuaa.wsm.simpleweather.application.WeatherApplication;
+import nuaa.wsm.simpleweather.db.SimpleWeatherDB;
+import nuaa.wsm.simpleweather.model.County;
+import nuaa.wsm.simpleweather.model.WeatherInfo;
 import nuaa.wsm.simpleweather.util.HttpCallbackListener;
 import nuaa.wsm.simpleweather.util.HttpUtil;
 import nuaa.wsm.simpleweather.util.Utility;
@@ -64,12 +71,22 @@ public class WeatherActivity extends Activity implements View.OnClickListener
      */
     private Button refreshWeather;
 
-   // SwipeRefreshLayout weather_swipeRefreshLayout;
+    //SwipeRefreshLayout weather_swipeRefreshLayout;
 
     ViewPager mViewPager;
 
+    private int selected_page;
+
     private View view_added;
-    //private List<View> viewList;//view数组
+    //private DataCollector dataCollector;
+    private SimpleWeatherDB simpleWeatherDB;
+    private LayoutInflater inflater;
+    private SharedPreferences sharedPreferences;
+    private List<View> mViewList;
+    private List<WeatherInfo> mWeatherList;
+    private String countyCode;
+    private boolean requestState;
+    private String from;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,78 +94,139 @@ public class WeatherActivity extends Activity implements View.OnClickListener
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.weather_layout);
 
-        // 初始化各控件
+        // 初始化各控件 变量
         Button switchCity = (Button) findViewById(R.id.switch_city);
         Button settings = (Button) findViewById(R.id.settings);
         cityNameText = (TextView)findViewById(R.id.city_name);
         switchCity.setOnClickListener(WeatherActivity.this);
         settings.setOnClickListener(WeatherActivity.this);
+        simpleWeatherDB = SimpleWeatherDB.getInstance(WeatherApplication.getContext());/* 确保context不为空 */
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
 
+        /* 设置view pager */
         mViewPager = (ViewPager)findViewById(R.id.viewpager);
         mViewPager.setOnPageChangeListener(WeatherActivity.this);
-        LayoutInflater inflater=getLayoutInflater();
+        inflater = getLayoutInflater();
+        mViewList = new ArrayList<View>();/*需要在set adapter前面*/
+        mWeatherList = new ArrayList<WeatherInfo>();
         mViewPager.setAdapter(pagerAdapter);
 
-
-        String countyCode = getIntent().getStringExtra("county_code");
-        if (!TextUtils.isEmpty(countyCode)) {
-            // 有县级代号时就去查询天气
-            view_added = inflater.inflate(R.layout.swipe_refresh_layout, null);
-            ViewCollector.viewList.add(view_added);
-            ViewCollector.cityNameList.add(getIntent().getStringExtra("county_name"));
-            cityNameText.setText(getIntent().getStringExtra("county_name"));
-            cityNameText.setVisibility(View.VISIBLE);
-            pagerAdapter.notifyDataSetChanged();
-            //publishText.setText("同步中...");
-            //weatherInfoLayout.setVisibility(View.INVISIBLE);
-            //cityNameText.setVisibility(View.INVISIBLE);
-            queryWeatherCode(countyCode);
-        } else {
-            // 没有县级代号时就直接显示本地天气
-            //showWeather();
-            for(View view : ViewCollector.viewList) {
-                initSwipeRefreshLayout(view, WeatherActivity.this);
+        /* *
+         *  根据上个activity传来的county_code决定显示哪个area的天气信息
+         */
+        countyCode = getIntent().getStringExtra("county_code");
+        selected_page = 0;
+        if(simpleWeatherDB.loadSelectedArea().size() > 0) {
+            for(County tmp : simpleWeatherDB.loadSelectedArea()) {
+                if(tmp.getCountyCode().equals(countyCode)) {
+                    Log.d("wsm", "tmp.getCountycode:" + tmp.getCountyCode());
+                    break;
+                }
+                selected_page++;
             }
-
+        }
+        /* activity创建时先预加载已经选择过的area的天气信息到view */
+        List<County> selectedArea = simpleWeatherDB.loadSelectedArea();
+        List<WeatherInfo> all_weahterinfo = simpleWeatherDB.loadWeatherInfo();
+        if(all_weahterinfo.size() > 0) {
+            Log.d("wsm", "size > 0");
+            for(WeatherInfo tmp : all_weahterinfo) {
+                View view = inflater.inflate(R.layout.swipe_refresh_layout, null);
+                mViewList.add(view);
+                pagerAdapter.notifyDataSetChanged();
+                initSwipeRefreshLayout(view, WeatherActivity.this, tmp);
+            }
         }
 
+        queryWeatherCode(countyCode);//优化：不要每次都是去访问网络
+    }
 
-        //swiperefreshlayout
-        /*
-        weather_swipeRefreshLayout = (SwipeRefreshLayout)findViewById(R.id.swipe_container);
-        weather_swipeRefreshLayout.setOnRefreshListener(this);
-        //weather_swipeRefreshLayout.setColorSchemeColors(0xff0000);
-        weather_swipeRefreshLayout.setColorSchemeResources(android.R.color.holo_blue_light, android.R.color.holo_red_light, android.R.color.holo_orange_light, android.R.color.holo_green_light);
-        weather_swipeRefreshLayout.setDistanceToTriggerSync(200);
-        weather_swipeRefreshLayout.setProgressBackgroundColorSchemeResource(android.R.color.holo_blue_light);
-        */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
     }
 
 
-    private void initSwipeRefreshLayout(View view, WeatherActivity activity) {
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        countyCode = getIntent().getStringExtra("county_code");
+        selected_page = 0;
+        if(simpleWeatherDB.loadSelectedArea().size() > 0) {
+            for(County tmp : simpleWeatherDB.loadSelectedArea()) {
+                if(tmp.getCountyCode().equals(countyCode)) {
+                    break;
+                }
+                selected_page++;
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        countyCode = getIntent().getStringExtra("county_code");
+        from = getIntent().getStringExtra("from");
+        if(from.equals("ChooseAreaActivity")) {//新增的area，去查询天气并显示
+            Log.d("wsm", " from ChooseAreaActivity");
+            //mViewList.clear();
+            queryWeatherCode(countyCode);
+        } else if(from.equals("SelectedAreaDisplayActivity")){ //点击现有的area跳转，直接显示
+            Log.d("wsm", " from SelectedAreaDisplayActivity");
+            mViewPager.setCurrentItem(selected_page);
+        } else { //上个界面点击返回键退出或则从启动页跳转，工作在oncreate中做，什么也不做
+
+        }
+        getIntent().putExtra("from", "");//reset from的值，以便在点击返回键时，形成正确的逻辑。保证返回时page停留在正确的index上。
+    }
+
+    void showAndStoreArea(int index) {//所有的数据管理放到一个service里？
+        List<County> selectedArea = simpleWeatherDB.loadSelectedArea();
+        List<WeatherInfo> all_weahterinfo = simpleWeatherDB.loadWeatherInfo();
+        WeatherInfo added_weather = all_weahterinfo.get(all_weahterinfo.size()-1);
+        if(mViewList.size() == all_weahterinfo.size()) {
+            initSwipeRefreshLayout(mViewList.get(selected_page), WeatherActivity.this, added_weather);
+        } else {
+            View view = inflater.inflate(R.layout.swipe_refresh_layout, null);
+            mViewList.add(view);
+            initSwipeRefreshLayout(view, WeatherActivity.this, added_weather);
+        }
+        //这里需要设置一下标题
+        cityNameText.setText(selectedArea.get(index).getCountyName());
+        pagerAdapter.notifyDataSetChanged();
+        mViewPager.setCurrentItem(index);
+
+    }
+
+    private void initSwipeRefreshLayout(View view, WeatherActivity activity, WeatherInfo weatherInfo) {
 
         LinearLayout weatherInfoLayout = (LinearLayout) view.findViewById(R.id.weather_info_layout);
-        //TextView cityNameText = (TextView) view.findViewById(R.id.city_name);
         TextView publishText = (TextView)view.findViewById(R.id.publish_text);
         TextView weatherDespText = (TextView) view.findViewById(R.id.weather_desp);
         TextView temp1Text = (TextView) view.findViewById(R.id.temp1);
         TextView temp2Text = (TextView) view.findViewById(R.id.temp2);
         TextView currentDateText = (TextView) view.findViewById(R.id.current_date);
 
+        cityNameText.setText(weatherInfo.getAreaName());
+        temp1Text.setText(weatherInfo.getTmp1());
+        temp2Text.setText(weatherInfo.getTmp2());
+        weatherDespText.setText(weatherInfo.getWeather_desp());
+        if(weatherInfo.getTmp1() == null)
+            publishText.setText("更新失败");
+        else
+            publishText.setText("今天" + weatherInfo.getPublish_time() + "发布");
 
-        SharedPreferences prefs = PreferenceManager.
-                getDefaultSharedPreferences(this);
-       // cityNameText.setText(prefs.getString("city_name", ""));
-        temp1Text.setText(prefs.getString("temp1", ""));
-        temp2Text.setText(prefs.getString("temp2", ""));
-        weatherDespText.setText(prefs.getString("weather_desp", ""));
-        publishText.setText("今天" + prefs.getString("publish_time", "") + "发布");
-        currentDateText.setText(prefs.getString("current_date", ""));
+        currentDateText.setText(weatherInfo.getCurrent_date());
+
         weatherInfoLayout.setVisibility(View.VISIBLE);
-      //  cityNameText.setVisibility(View.VISIBLE);
 
-        ((SwipeRefreshLayout)view).setOnRefreshListener(WeatherActivity.this);
+        ((SwipeRefreshLayout) view).setOnRefreshListener(WeatherActivity.this);
 
+    }
+
+    void setHttpRequestState(boolean state) {
+        this.requestState = state;
     }
 
     @Override
@@ -156,13 +234,13 @@ public class WeatherActivity extends Activity implements View.OnClickListener
 
         switch (view.getId()) {
 
-            case R.id.switch_city:
+            case R.id.switch_city:/* 跳转到area选择列表 */
                 Intent intent = new Intent(this, SelectedAreaDisplayActivity.class);
                 intent.putExtra("from_weather_activity", true);
                 startActivity(intent);
-                finish();
+                //finish();
                 break;
-            case R.id.settings:
+            case R.id.settings:/* 跳转到设置界面 */
                 Intent intent_settings = new Intent(this, SettingActivity.class);
                 startActivity(intent_settings);
                 break;
@@ -177,21 +255,22 @@ public class WeatherActivity extends Activity implements View.OnClickListener
     private void queryWeatherCode(String countyCode) {
         String address = "http://www.weather.com.cn/data/list3/city" +
                 countyCode + ".xml";
-        queryFromServer(address, "countyCode");
+        queryFromServer(address, "countyCode", countyCode);
     }
+
     /**
      * 查询天气代号所对应的天气。
      */
     private void queryWeatherInfo(String weatherCode) {
         String address = "http://www.weather.com.cn/data/cityinfo/" +
                 weatherCode + ".html";
-        queryFromServer(address, "weatherCode");
+        queryFromServer(address, "weatherCode", null);
     }
 
     /**
      * 根据传入的地址和类型去向服务器查询天气代号或者天气信息。
      */
-    private void queryFromServer(final String address, final String type) {
+    private void queryFromServer(final String address, final String type, final String countyCode) {
         HttpUtil.sendHttpRequest(address, new HttpCallbackListener() {
             @Override
             public void onFinish(String response) {
@@ -201,19 +280,20 @@ public class WeatherActivity extends Activity implements View.OnClickListener
                         String[] array = response.split("\\|");
                         if (array != null && array.length == 2) {
                             String weatherCode = array[1];
+                            simpleWeatherDB.saveWeatherCode(countyCode, weatherCode);
                             queryWeatherInfo(weatherCode);
                         }
                     }
                 } else if ("weatherCode".equals(type)) {
-                    // 处理服务器返回的天气信息
+                    // 处理服务器返回的天气信息，将天气信息存储进数据库
                     Utility.handleWeatherResponse(WeatherActivity.this,
                             response);
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            //weather_swipeRefreshLayout.setRefreshing(false);
-                            //showWeather();
-                            initSwipeRefreshLayout(ViewCollector.viewList.get(ViewCollector.viewList.size()-1), WeatherActivity.this);
+                            //what to do?
+                            setHttpRequestState(true);
+                            showAndStoreArea(selected_page);
                         }
                     });
                 }
@@ -226,30 +306,14 @@ public class WeatherActivity extends Activity implements View.OnClickListener
                     public void run() {
                         // weather_swipeRefreshLayout.setRefreshing(false);
                         //publishText.setText("同步失败");
+                        Utility.handleWeahterResponseFail(WeatherActivity.this,
+                                simpleWeatherDB.GetNameFromCodeInSelectArea(WeatherActivity.this.countyCode));
+                        setHttpRequestState(false);
+                        showAndStoreArea(selected_page);
                     }
                 });
             }
         });
-    }
-
-    /**
-     * 从SharedPreferences文件中读取存储的天气信息，并显示到界面上。
-     */
-    private void showWeather(View view) {
-/*
-        SharedPreferences prefs = PreferenceManager.
-                getDefaultSharedPreferences(this);
-        cityNameText.setText( prefs.getString("city_name", ""));
-        temp1Text.setText(prefs.getString("temp1", ""));
-        temp2Text.setText(prefs.getString("temp2", ""));
-        weatherDespText.setText(prefs.getString("weather_desp", ""));
-        publishText.setText("今天" + prefs.getString("publish_time", "") + "发布");
-        currentDateText.setText(prefs.getString("current_date", ""));
-        weatherInfoLayout.setVisibility(View.VISIBLE);
-        cityNameText.setVisibility(View.VISIBLE);
-*/
-        //Intent intent = new Intent(this, AutoUpdateService.class);
-        //startService(intent);
     }
 
 
@@ -277,23 +341,23 @@ public class WeatherActivity extends Activity implements View.OnClickListener
         @Override
         public int getCount() {
             // TODO Auto-generated method stub
-            return ViewCollector.viewList.size();
+            return mViewList.size();
         }
 
         @Override
         public void destroyItem(ViewGroup container, int position,
                                 Object object) {
             // TODO Auto-generated method stub
-            container.removeView(ViewCollector.viewList.get(position));
+            container.removeView(mViewList.get(position));
         }
 
         @Override
         public Object instantiateItem(ViewGroup container, int position) {
             // TODO Auto-generated method stub
-            container.addView(ViewCollector.viewList.get(position));
+            container.addView(mViewList.get(position));
 
 
-            return ViewCollector.viewList.get(position);
+            return mViewList.get(position);
         }
     };
 
@@ -304,7 +368,13 @@ public class WeatherActivity extends Activity implements View.OnClickListener
 
     @Override
     public void onPageSelected(int position) {
-        cityNameText.setText(ViewCollector.cityNameList.get(position));
+        Log.d("wsm", "index=" + position);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString("county_code", simpleWeatherDB.loadSelectedArea().get(position).getCountyCode());
+        editor.commit();
+        Log.d("wsm", "now: " + sharedPreferences.getString("county_code", ""));
+        //更改标题栏的城市名称
+        cityNameText.setText(simpleWeatherDB.loadSelectedArea().get(position).getCountyName());
         cityNameText.setVisibility(View.VISIBLE);
     }
 
