@@ -15,7 +15,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,6 +25,7 @@ import nuaa.wsm.simpleweather.R;
 import nuaa.wsm.simpleweather.application.WeatherApplication;
 import nuaa.wsm.simpleweather.db.SimpleWeatherDB;
 import nuaa.wsm.simpleweather.model.County;
+import nuaa.wsm.simpleweather.model.MySwipeRefreshLayout;
 import nuaa.wsm.simpleweather.model.WeatherInfo;
 import nuaa.wsm.simpleweather.util.HttpCallbackListener;
 import nuaa.wsm.simpleweather.util.HttpUtil;
@@ -71,7 +71,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener
      */
     private Button refreshWeather;
 
-    //SwipeRefreshLayout weather_swipeRefreshLayout;
+    MySwipeRefreshLayout weather_swipeRefreshLayout;
 
     ViewPager mViewPager;
 
@@ -87,6 +87,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener
     private String countyCode;
     private boolean requestState;
     private String from;
+    private boolean isPullDown = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,9 +103,19 @@ public class WeatherActivity extends Activity implements View.OnClickListener
         settings.setOnClickListener(WeatherActivity.this);
         simpleWeatherDB = SimpleWeatherDB.getInstance(WeatherApplication.getContext());/* 确保context不为空 */
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
+        weather_swipeRefreshLayout = (MySwipeRefreshLayout)findViewById(R.id.weather_info_page_container);
+
+        /*设置swiperefreshlayout*/
+        if(weather_swipeRefreshLayout != null) {
+            weather_swipeRefreshLayout.setOnRefreshListener(this);
+            // 设置下拉圆圈上的颜色，蓝色、绿色、橙色、红色
+            weather_swipeRefreshLayout.setColorSchemeResources(android.R.color.holo_blue_bright, android.R.color.holo_green_light,
+                    android.R.color.holo_orange_light, android.R.color.holo_red_light);
+        }
+
 
         /* 设置view pager */
-        mViewPager = (ViewPager)findViewById(R.id.viewpager);
+        mViewPager = (ViewPager)findViewById(R.id.weather_info_viewpage);
         mViewPager.setOnPageChangeListener(WeatherActivity.this);
         inflater = getLayoutInflater();
         mViewList = new ArrayList<View>();/*需要在set adapter前面*/
@@ -131,7 +142,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener
         if(all_weahterinfo.size() > 0) {
             Log.d("wsm", "size > 0");
             for(WeatherInfo tmp : all_weahterinfo) {
-                View view = inflater.inflate(R.layout.swipe_refresh_layout, null);
+                View view = inflater.inflate(R.layout.weather_info_page_layout, null);
                 mViewList.add(view);
                 pagerAdapter.notifyDataSetChanged();
                 initSwipeRefreshLayout(view, WeatherActivity.this, tmp);
@@ -184,11 +195,11 @@ public class WeatherActivity extends Activity implements View.OnClickListener
     void showAndStoreArea(int index) {//所有的数据管理放到一个service里？
         List<County> selectedArea = simpleWeatherDB.loadSelectedArea();
         List<WeatherInfo> all_weahterinfo = simpleWeatherDB.loadWeatherInfo();
-        WeatherInfo added_weather = all_weahterinfo.get(all_weahterinfo.size()-1);
+        WeatherInfo added_weather = all_weahterinfo.get(selected_page);
         if(mViewList.size() == all_weahterinfo.size()) {
             initSwipeRefreshLayout(mViewList.get(selected_page), WeatherActivity.this, added_weather);
         } else {
-            View view = inflater.inflate(R.layout.swipe_refresh_layout, null);
+            View view = inflater.inflate(R.layout.weather_info_page_layout, null);
             mViewList.add(view);
             initSwipeRefreshLayout(view, WeatherActivity.this, added_weather);
         }
@@ -201,7 +212,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener
 
     private void initSwipeRefreshLayout(View view, WeatherActivity activity, WeatherInfo weatherInfo) {
 
-        LinearLayout weatherInfoLayout = (LinearLayout) view.findViewById(R.id.weather_info_layout);
+      //  LinearLayout weatherInfoLayout = (LinearLayout) view.findViewById(R.id.weather_info_layout);
         TextView publishText = (TextView)view.findViewById(R.id.publish_text);
         TextView weatherDespText = (TextView) view.findViewById(R.id.weather_desp);
         TextView temp1Text = (TextView) view.findViewById(R.id.temp1);
@@ -219,9 +230,9 @@ public class WeatherActivity extends Activity implements View.OnClickListener
 
         currentDateText.setText(weatherInfo.getCurrent_date());
 
-        weatherInfoLayout.setVisibility(View.VISIBLE);
+       // weatherInfoLayout.setVisibility(View.VISIBLE);
 
-        ((SwipeRefreshLayout) view).setOnRefreshListener(WeatherActivity.this);
+      //  ((MySwipeRefreshLayout) view).setOnRefreshListener(WeatherActivity.this);
 
     }
 
@@ -292,7 +303,13 @@ public class WeatherActivity extends Activity implements View.OnClickListener
                         @Override
                         public void run() {
                             //what to do?
+                            Log.d("wsm", "同步成功");
+                            Toast.makeText(WeatherActivity.this, "刷新成功", Toast.LENGTH_SHORT).show();
                             setHttpRequestState(true);
+                            if(isPullDown) {
+                                isPullDown = false;
+                                weather_swipeRefreshLayout.setRefreshing(false);
+                            }
                             showAndStoreArea(selected_page);
                         }
                     });
@@ -306,9 +323,15 @@ public class WeatherActivity extends Activity implements View.OnClickListener
                     public void run() {
                         // weather_swipeRefreshLayout.setRefreshing(false);
                         //publishText.setText("同步失败");
+                        Log.d("wsm", "同步失败");
+                        Toast.makeText(WeatherActivity.this, "刷新失败", Toast.LENGTH_SHORT).show();
                         Utility.handleWeahterResponseFail(WeatherActivity.this,
                                 simpleWeatherDB.GetNameFromCodeInSelectArea(WeatherActivity.this.countyCode));
                         setHttpRequestState(false);
+                        if(isPullDown) {
+                            isPullDown = false;
+                            weather_swipeRefreshLayout.setRefreshing(false);
+                        }
                         showAndStoreArea(selected_page);
                     }
                 });
@@ -319,15 +342,18 @@ public class WeatherActivity extends Activity implements View.OnClickListener
 
     @Override
     public void onRefresh() {
+        //Toast.makeText(WeatherActivity.this, "刷新中", Toast.LENGTH_SHORT).show();
+        String county_code = sharedPreferences.getString("county_code", "");
+        isPullDown = true;
+        queryWeatherCode(county_code);
         /*
-        publishText.setText("同步中...");
-        SharedPreferences prefs = PreferenceManager.
-                getDefaultSharedPreferences(this);
-        String weatherCode = prefs.getString("weather_code", "");
-        if (!TextUtils.isEmpty(weatherCode)) {
-            queryWeatherInfo(weatherCode);
-        }*/
-        Toast.makeText(WeatherActivity.this, "dasdasd", Toast.LENGTH_SHORT).show();
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // 停止刷新
+                weather_swipeRefreshLayout.setRefreshing(false);
+            }
+        }, 3000); // 5秒后发送消息，停止刷新*/
     }
 
     PagerAdapter pagerAdapter = new PagerAdapter() {
@@ -376,6 +402,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener
         //更改标题栏的城市名称
         cityNameText.setText(simpleWeatherDB.loadSelectedArea().get(position).getCountyName());
         cityNameText.setVisibility(View.VISIBLE);
+        selected_page = position;
     }
 
     @Override

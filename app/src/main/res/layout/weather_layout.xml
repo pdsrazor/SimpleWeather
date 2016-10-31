@@ -36,13 +36,28 @@
 
     </RelativeLayout>
 
-    <android.support.v4.view.ViewPager
-        android:id="@+id/viewpager"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center" />
+    <nuaa.wsm.simpleweather.model.MySwipeRefreshLayout
+        android:layout_width="fill_parent"
+        android:id="@+id/weather_info_page_container"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical" >
 
+        <android.support.v4.view.ViewPager
+            android:id="@+id/weather_info_viewpage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center" >
+            <!--
+                        <android.support.v4.view.PagerTabStrip
+                          android:id="@+id/pagertab"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:layout_gravity="top"/>
+              -->
+        </android.support.v4.view.ViewPager>
 
+    </nuaa.wsm.simpleweather.model.MySwipeRefreshLayout>
 
 <!--
     <android.support.v4.widget.SwipeRefreshLayout
